@@ -1,6 +1,7 @@
 import socketio
 import eventlet
 import eventlet.wsgi
+from agent_registry import AgentRegistry
 
 sio = socketio.Server(
     cors_allowed_origins="*",
@@ -10,18 +11,11 @@ sio = socketio.Server(
 
 app = socketio.WSGIApp(sio)
 
-agents = {}
+agent_registry = AgentRegistry()
 
 def _get_public_agents():
     """Returns a dictionary of agents safe for public consumption."""
-    return {
-        device_id: {
-            "hostname": agent_data["hostname"],
-            "username": agent_data["username"],
-            "os": agent_data["os"],
-        }
-        for device_id, agent_data in agents.items()
-    }
+    return agent_registry.get_public_list()
 
 def broadcast_agent_update():
     print("--------Broadcasting the current list of agents to all clients.------")
@@ -40,15 +34,8 @@ def connect(sid, environ):
 @sio.event
 def disconnect(sid):
     print("----------CLIENT DISCONNECTED----------", sid)
-
-    device_to_remove = None
-    for device_id, agent_info in agents.items():
-        if agent_info["sid"] == sid:
-            device_to_remove = device_id
-            break
-
+    device_to_remove = agent_registry.remove(sid)
     if device_to_remove:
-        del agents[device_to_remove]
         print("----------AGENT REMOVED----------", device_to_remove)
         broadcast_agent_update()
 
@@ -56,14 +43,7 @@ def disconnect(sid):
 
 @sio.event
 def register_agent(sid, data):
-    device_id = data["device_id"]
-    agents[device_id] = {
-        "sid": sid,
-        "hostname": data["hostname"],
-        "username": data["username"],
-        "os": data["os"]
-    }
-
+    device_id = agent_registry.register(sid, data)
     print("----------AGENT REGISTERED----------", device_id)
     
     print("\n=== AGENT REGISTERED ===")
@@ -94,18 +74,18 @@ def execute_command(sid, data):
     target = data["target"]
     command = data["command"]
 
-    if target not in agents:
+    if not agent_registry.is_agent_online(target):
         sio.emit(
             "command_result",
             {
                 "status": "error",
-                "message": "Agent not found"
+                "message": f"Agent '{target}' not found or is offline."
             },
             to=sid
         )
         return
 
-    target_sid = agents[target]["sid"]
+    target_sid = agent_registry.get_sid(target)
 
     sio.emit(
         "run_command",

@@ -1,8 +1,7 @@
 import socketio
 import subprocess
-import socket
-import platform
-import getpass
+import time
+from metadata import get_agent_metadata
 
 DEVICE_ID = "PC-001"
 
@@ -13,16 +12,9 @@ sio = socketio.Client()
 @sio.event
 def connect():
     print("----------CONNECTED TO SERVER----------")
-    
-    metadata = {
-        "device_id": DEVICE_ID,
-        "hostname": socket.gethostname(),
-        "username" : getpass.getuser(),
-        "os": platform.system(),
-    }
 
     sio.emit(
-        "register_agent",  metadata
+        "register_agent", get_agent_metadata(DEVICE_ID)
     )
 
 
@@ -82,7 +74,10 @@ try:
     sio.connect("http://localhost:5000")
     sio.wait()
 except KeyboardInterrupt:
-    print("\nExiting... Disconnecting from server.")
+    print("\n Disconnecting from server.")
+    time.sleep(0.5)
+    print("\n Exiting... ")
+    time.sleep(0.5)
 finally:
     if sio.connected:
         sio.disconnect()

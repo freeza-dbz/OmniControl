@@ -2,6 +2,7 @@ import socketio
 import time
 
 sio = socketio.Client()
+online_agents = {}
 
 
 @sio.event
@@ -63,21 +64,30 @@ try:
         elif choice == "2":
             target = input("Target Device ID: ")
             if target not in online_agents:
-                time.sleep(0.5)
-                print(f"Device '{target}' not found or offline.")
+                print(f"\nError: Device '{target}' not found or offline.")
+                time.sleep(1)
                 continue
-            command = input("Command: ")
-            print("--> Executing command...")
-            time.sleep(0.5)
-            sio.emit("execute_command", {"target": target, "command": command})
+            
+            while True:
+                command = input(f"Command for '{target}': ")
+                print("--> Executing command...")
+                sio.emit("execute_command", {"target": target, "command": command})
+                time.sleep(1)  
+
+                another = input(f"Execute another command on '{target}'? (y/n): ").lower()
+                if another not in ['y', 'yes']:
+                    break
         elif choice == "3":
+            print("Disconnecting...")
+            time.sleep(0.5)
             sio.disconnect()
             break
         else:
             print("Invalid choice, please try again.")
 except KeyboardInterrupt:
+    print("Disconnecting...")
+    time.sleep(0.5)
     print("\nExiting...")
 finally:
-    print("disconnecting...")
     if sio.connected:
         sio.disconnect()
