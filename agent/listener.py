@@ -1,5 +1,8 @@
 import socketio
 import subprocess
+import socket
+import platform
+import getpass
 
 DEVICE_ID = "PC-001"
 
@@ -8,19 +11,23 @@ sio = socketio.Client()
 
 @sio.event
 def connect():
-    print("CONNECTED TO SERVER")
+    print("----------CONNECTED TO SERVER----------")
+    
+    metadata = {
+        "device_id": DEVICE_ID,
+        "hostname": socket.gethostname(),
+        "username" : getpass.getuser(),
+        "os": platform.system(),
+    }
 
     sio.emit(
-        "register_agent",
-        {
-            "device_id": DEVICE_ID
-        }
+        "register_agent",  metadata
     )
 
 
 @sio.event
 def registration_success(data):
-    print("REGISTERED", data)
+    print("----------REGISTERED----------", data)
 
 
 @sio.event
@@ -28,7 +35,7 @@ def run_command(data):
     command = data["command"]
     controller_sid = data["controller_sid"]
 
-    print("COMMAND", command)
+    print("----------COMMAND----------", command)
 
     try:
         result = subprocess.run(
@@ -65,7 +72,7 @@ def run_command(data):
 
 @sio.event
 def disconnect():
-    print("DISCONNECTED")
+    print("----------DISCONNECTED----------")
 
 
 sio.connect("http://localhost:5000")
