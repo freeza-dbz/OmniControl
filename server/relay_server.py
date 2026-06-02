@@ -12,9 +12,9 @@ app = socketio.WSGIApp(sio)
 
 agents = {}
 
-def broadcast_agent_update():
-    print("--------Broadcasting the current list of agents to all clients.------")
-    public_agents = {
+def _get_public_agents():
+    """Returns a dictionary of agents safe for public consumption."""
+    return {
         device_id: {
             "hostname": agent_data["hostname"],
             "username": agent_data["username"],
@@ -22,20 +22,18 @@ def broadcast_agent_update():
         }
         for device_id, agent_data in agents.items()
     }
+
+def broadcast_agent_update():
+    print("--------Broadcasting the current list of agents to all clients.------")
+    public_agents = _get_public_agents()
     sio.emit("agents_update", public_agents)
 
+# client connection
 
 @sio.event
 def connect(sid, environ):
     print("----------CLIENT CONNECTED----------", sid)
-    public_agents = {
-        device_id: {
-            "hostname": agent_data["hostname"],
-            "username": agent_data["username"],
-            "os": agent_data["os"],
-        }
-        for device_id, agent_data in agents.items()
-    }
+    public_agents = _get_public_agents()
     sio.emit("agents_update", public_agents, to=sid)
 
 
@@ -54,6 +52,7 @@ def disconnect(sid):
         print("----------AGENT REMOVED----------", device_to_remove)
         broadcast_agent_update()
 
+# agent registeration
 
 @sio.event
 def register_agent(sid, data):
@@ -81,6 +80,14 @@ def register_agent(sid, data):
     )
     broadcast_agent_update()
 
+@sio.event
+def get_agents(sid):
+    """Handles a request from a controller to get the current agent list."""
+    print(f"----------Client {sid} requested agent list.----------")
+    public_agents = _get_public_agents()
+    sio.emit("agents_update", public_agents, to=sid)
+
+# forwarding command to agent
 
 @sio.event
 def execute_command(sid, data):
@@ -109,7 +116,8 @@ def execute_command(sid, data):
         to=target_sid
     )
 
-
+# forwarding command results back to controller
+ 
 @sio.event
 def command_result(sid, data):
     controller_sid = data["controller_sid"]
@@ -120,6 +128,7 @@ def command_result(sid, data):
         to=controller_sid
     )
 
+# server starting 
 
 if __name__ == "__main__":
     print("----------Relay server started on port 5000----------")

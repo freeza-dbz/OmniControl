@@ -8,6 +8,7 @@ DEVICE_ID = "PC-001"
 
 sio = socketio.Client()
 
+# connecting to server
 
 @sio.event
 def connect():
@@ -29,6 +30,7 @@ def connect():
 def registration_success(data):
     print("----------REGISTERED----------", data)
 
+# executing command 
 
 @sio.event
 def run_command(data):
@@ -69,11 +71,18 @@ def run_command(data):
             }
         )
 
+# server connection 
 
 @sio.event
 def disconnect():
     print("----------DISCONNECTED----------")
 
 
-sio.connect("http://localhost:5000")
-sio.wait()
+try:
+    sio.connect("http://localhost:5000")
+    sio.wait()
+except KeyboardInterrupt:
+    print("\nExiting... Disconnecting from server.")
+finally:
+    if sio.connected:
+        sio.disconnect()
