@@ -66,6 +66,13 @@ def register_agent(sid, data):
     }
 
     print("----------AGENT REGISTERED----------", device_id)
+    
+    print("\n=== AGENT REGISTERED ===")
+    print(f"Device ID : {data['device_id']}")
+    print(f"Hostname  : {data['hostname']}")
+    print(f"Username  : {data['username']}")
+    print(f"OS        : {data['os']}")
+    print("========================\n")
 
     sio.emit(
         "registration_success",

@@ -11,7 +11,14 @@ def connect():
 @sio.event
 def command_result(data):
     print("\n----------COMMAND RESULT----------")
-    print(data["output"])
+    output = data.get("output")
+    message = data.get("message")
+    if output is not None:
+        print(output)
+    elif message is not None:
+        print(f"Error: {message}")
+    else:
+        print(f"Received an unexpected result format: {data}")
     print("--------------------\n")
 
 
