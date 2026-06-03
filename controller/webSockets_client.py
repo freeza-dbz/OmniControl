@@ -50,44 +50,100 @@ def disconnect():
 
 sio.connect("http://localhost:5000")
 
+# file manager
+
+from file_manager import FileManager
+
+def upload_file(target, filepath):
+
+    payload = FileManager.prepare_upload(filepath)
+
+    payload["target"] = target
+    
+    sio.emit(
+        "upload_file",
+        payload
+    )
+    
+@sio.event
+def upload_result(data):
+    
+    # result of file tranfer from server
+    
+    print("\n----------FILE UPLOAD----------")
+    
+    print(data)
+    
+    print("--------------------\n")
+
+
+# menu
+
+def is_agent_available(target_id: str) -> bool:
+    if target_id not in online_agents:
+        print(f"\nError: Device '{target_id}' not found or offline.")
+        time.sleep(1)
+        return False
+    return True
+
+
 try:
     while True:
         print("\n1. List Devices")
         print("2. Execute Command")
-        print("3. Exit")
+        print("3. File Transfer")
+        print("4. Exit")
         choice = input("Choice: ")
 
         if choice == "1":
+            
             print("--> Requesting agent list...")
             sio.emit("get_agents")
             time.sleep(1)  
+        
         elif choice == "2":
+            
             target = input("Target Device ID: ")
-            if target not in online_agents:
-                print(f"\nError: Device '{target}' not found or offline.")
-                time.sleep(1)
+            if not is_agent_available(target):
                 continue
             
             while True:
                 command = input(f"Command for '{target}': ")
                 print("--> Executing command...")
                 sio.emit("execute_command", {"target": target, "command": command})
-                time.sleep(1)  
+                time.sleep(1)
 
                 another = input(f"Execute another command on '{target}'? (y/n): ").lower()
                 if another not in ['y', 'yes']:
                     break
+
         elif choice == "3":
+            
+            target = input("Target Device ID : ")
+            if not is_agent_available(target):
+                continue
+            
+            filepath = input("File Path : ")
+            
+            upload_file(target, filepath)
+        
+        elif choice == "4":
+            
             print("Disconnecting...")
             time.sleep(0.5)
             sio.disconnect()
             break
+        
         else:
             print("Invalid choice, please try again.")
+            
 except KeyboardInterrupt:
+    
     print("Disconnecting...")
     time.sleep(0.5)
     print("\nExiting...")
+    
 finally:
+    
     if sio.connected:
         sio.disconnect()

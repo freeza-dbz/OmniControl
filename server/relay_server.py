@@ -14,7 +14,9 @@ app = socketio.WSGIApp(sio)
 agent_registry = AgentRegistry()
 
 def _get_public_agents():
-    """Returns a dictionary of agents safe for public consumption."""
+    
+    # Returns a dictionary of agents safe for public consumption.
+    
     return agent_registry.get_public_list()
 
 def broadcast_agent_update():
@@ -62,7 +64,9 @@ def register_agent(sid, data):
 
 @sio.event
 def get_agents(sid):
-    """Handles a request from a controller to get the current agent list."""
+    
+    # Handles a request from a controller to get the current agent list.
+    
     print(f"----------Client {sid} requested agent list.----------")
     public_agents = _get_public_agents()
     sio.emit("agents_update", public_agents, to=sid)
@@ -96,17 +100,65 @@ def execute_command(sid, data):
         to=target_sid
     )
 
-# forwarding command results back to controller
  
 @sio.event
 def command_result(sid, data):
+
+# forwarding command results back to controller
+
     controller_sid = data["controller_sid"]
 
     sio.emit(
         "command_result",
         data,
         to=controller_sid
+    ) 
+
+
+#file transfer
+
+@sio.event
+def upload_file(sid, data):
+   
+    target = data["target"]
+    
+    if not agent_registry.is_agent_online(target):
+        sio.emit(
+            "upload_result",
+            {
+                "status" : "error",
+                "message": f"Agent '{target}' not found or is offline."
+            },
+            to=sid
+        )
+        
+        return 
+    
+    target_sid = agent_registry.get_sid(target)
+    
+    # Add controller SID for response routing
+    data['controller_sid'] = sid
+    
+    sio.emit(
+        "upload_file",
+        data,
+        to=target_sid
     )
+
+
+@sio.event
+def upload_result(sid, data):
+
+# Forwarding Transfer file result back to controller
+
+    controller_sid = data.get("controller_sid")
+    if controller_sid:
+        sio.emit("upload_result", data, to=controller_sid)
+    else:
+        print(f"Warning: Received 'upload_result' from agent {sid} without a 'controller_sid'. Cannot forward.")
+
+    
+
 
 # server starting 
 
