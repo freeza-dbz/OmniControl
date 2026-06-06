@@ -158,7 +158,50 @@ def upload_result(sid, data):
         print(f"Warning: Received 'upload_result' from agent {sid} without a 'controller_sid'. Cannot forward.")
 
     
+# Download file 
 
+@sio.event
+def download_file(sid, data):
+    
+    target = data["target"]
+    
+    if target not in agent_registry.agents:
+        sio.emit(
+            "download_result",
+            {
+                "status": "error",
+                "message": "Agent not found"
+            },
+            to=sid
+        )
+        
+        return 
+    
+    target_sid = agent_registry.get_sid(target)
+    
+    sio.emit(
+        "download_file",
+        {
+            "controller_sid": sid,
+            "filename": data["filename"]
+        },
+        to=target_sid
+    )
+    
+
+@sio.event
+def download_result(sid, data):
+    
+    # Forwarding Download file result back to controller
+    
+    controller_sid = data["controller_sid"]
+
+    sio.emit(
+        "download_result",
+        data,
+        to=controller_sid
+    )
+    
 
 # server starting 
 

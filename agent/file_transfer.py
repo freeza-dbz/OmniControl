@@ -27,3 +27,13 @@ class FileTransfer:
                 )
             
         return file_path
+    
+    @staticmethod
+    def read_file(file_path):
+        
+        with open(file_path, "rb") as file:
+            encoded_content = base64.b64encode(
+                file.read()
+                ).decode()
+            
+        return encoded_content

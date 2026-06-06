@@ -1,7 +1,8 @@
+import os
+
 import socketio
 import subprocess
 import time
-
 
 
 DEVICE_ID = "PC-001"
@@ -103,6 +104,42 @@ def upload_file(data):
         sio.emit(
             "upload_result",
             response
+        )
+
+
+# Download file
+
+from file_transfer import FileTransfer
+
+@sio.event
+def download_file(data):
+    try:
+        
+        filepath = data["filepath"]
+        
+        encoded_content = FileTransfer.read_file(
+            filepath
+        )
+        
+        sio.emit(
+            "download_result",
+            {
+                "controller_sid": data["controller_sid"],
+                "filename": os.path.basename(filepath),
+                "status": "success",
+                "content": encoded_content
+            }
+        )
+        
+    except Exception as e:
+        sio.emit(
+            "download_result",
+            {
+                "controller_sid": data["controller_sid"],
+                "filename": os.path.basename(filepath),
+                "status": "error",
+                "message": str(e)
+            }
         )
         
 

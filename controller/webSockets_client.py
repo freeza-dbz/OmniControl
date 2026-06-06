@@ -1,6 +1,8 @@
 import socketio
 import time
 
+from tkinter.tix import STATUS
+
 sio = socketio.Client()
 online_agents = {}
 
@@ -77,6 +79,39 @@ def upload_result(data):
     print("--------------------\n")
 
 
+# download file
+
+from file_manager import FileManager
+
+@sio.event
+def download_result(data):
+    if data["status"] == "error":
+        
+        print("\n----------FILE DOWNLOAD ERROR----------")
+        print(f"Error downloading '{data['filename']}': {data['message']}") 
+        
+        return
+    
+    filepath = FileManager.save_downloaded_file(
+        data["filename"], data["content"]
+    )
+    
+    print("\n----------FILE DOWNLOAD SUCCESS----------")
+    print(f"File downloaded successfully to: {filepath}")
+    
+    
+def request_file_download(target, remote_filepath):
+    
+    sio.emit(
+        "download_file",
+        {
+            "target": target,
+            "filename": remote_filepath
+        }
+    )
+
+    
+
 # menu
 
 def is_agent_available(target_id: str) -> bool:
@@ -92,7 +127,8 @@ try:
         print("\n1. List Devices")
         print("2. Execute Command")
         print("3. File Transfer")
-        print("4. Exit")
+        print("4. Download File")
+        print("5. Exit")
         choice = input("Choice: ")
 
         if choice == "1":
@@ -134,6 +170,16 @@ try:
                     break
         
         elif choice == "4":
+            target = input("Target Device ID : ")
+            if not is_agent_available(target):
+                continue
+            
+            remote_filepath = input("Remote File Path : ").strip(' "\'')
+            print("--> Requesting file download...")
+            time.sleep(1)
+            request_file_download(target, remote_filepath)
+        
+        elif choice == "5":
             
             print("Disconnecting...")
             time.sleep(0.5)
