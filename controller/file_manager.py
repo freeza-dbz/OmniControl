@@ -11,7 +11,7 @@ class FileManager:
             "rb"
         ) as f:
             
-            encode = base64.b64encode(
+            encode = base64.b64encode( 
                 f.read()
             ).decode()
             

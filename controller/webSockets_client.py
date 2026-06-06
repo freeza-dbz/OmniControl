@@ -45,7 +45,7 @@ def agents_update(data):
 
 @sio.event
 def disconnect():
-    print("----------DISCONNECTED----------")
+    print("\n----------DISCONNECTED----------")
 
 
 sio.connect("http://localhost:5000")
@@ -110,8 +110,8 @@ try:
             while True:
                 command = input(f"Command for '{target}': ")
                 print("--> Executing command...")
-                sio.emit("execute_command", {"target": target, "command": command})
                 time.sleep(1)
+                sio.emit("execute_command", {"target": target, "command": command})
 
                 another = input(f"Execute another command on '{target}'? (y/n): ").lower()
                 if another not in ['y', 'yes']:
@@ -123,9 +123,15 @@ try:
             if not is_agent_available(target):
                 continue
             
-            filepath = input("File Path : ")
-            
-            upload_file(target, filepath)
+            while True:
+                filepath = input("File Path : ").strip(' "\'')
+                print("--> Uploading file...")
+                time.sleep(1)
+                upload_file(target, filepath)
+                
+                another = input(f"Execute another command on '{target}'? (y/n): ").lower()
+                if another not in ['y', 'yes']:
+                    break
         
         elif choice == "4":
             

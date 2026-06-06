@@ -65,25 +65,6 @@ def run_command(data):
                 "output": str(e)
             }
         )
-
-# server connection 
-
-@sio.event
-def disconnect():
-    print("----------DISCONNECTED----------")
-
-
-try:
-    sio.connect("http://localhost:5000")
-    sio.wait()
-except KeyboardInterrupt:
-    print("\n Disconnecting from server.")
-    time.sleep(0.5)
-    print("\n Exiting... ")
-    time.sleep(0.5)
-finally:
-    if sio.connected:
-        sio.disconnect()
         
 
 # file transfer
@@ -91,7 +72,7 @@ finally:
 from file_transfer import FileTransfer
 
 @sio.event
-def file_transfer(data):
+def upload_file(data):
     controller_sid = data.get("controller_sid")
     response = {"controller_sid": controller_sid}
     try:
@@ -123,3 +104,23 @@ def file_transfer(data):
             "upload_result",
             response
         )
+        
+
+# server connection 
+
+@sio.event
+def disconnect():
+    print("----------DISCONNECTED----------")
+
+
+try:
+    sio.connect("http://localhost:5000")
+    sio.wait()
+except KeyboardInterrupt:
+    print("\n Disconnecting from server.")
+    time.sleep(0.5)
+    print("\n Exiting... ")
+    time.sleep(0.5)
+finally:
+    if sio.connected:
+        sio.disconnect()
