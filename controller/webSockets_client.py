@@ -1,7 +1,6 @@
 import socketio
 import time
 
-from tkinter.tix import STATUS
 
 sio = socketio.Client()
 online_agents = {}
@@ -101,6 +100,8 @@ def download_result(data):
     
     
 def request_file_download(target, remote_filepath):
+    
+    # request file download from server
     
     sio.emit(
         "download_file",

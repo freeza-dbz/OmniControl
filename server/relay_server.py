@@ -164,17 +164,18 @@ def upload_result(sid, data):
 def download_file(sid, data):
     
     target = data["target"]
+    filename = data.get("filename")
     
-    if target not in agent_registry.agents:
+    if not agent_registry.is_agent_online(target):
         sio.emit(
             "download_result",
             {
                 "status": "error",
-                "message": "Agent not found"
+                "message": f"Agent '{target}' not found or is offline.",
+                "filename": filename or "N/A"
             },
             to=sid
         )
-        
         return 
     
     target_sid = agent_registry.get_sid(target)
@@ -183,7 +184,7 @@ def download_file(sid, data):
         "download_file",
         {
             "controller_sid": sid,
-            "filename": data["filename"]
+            "filename": filename
         },
         to=target_sid
     )

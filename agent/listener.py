@@ -114,9 +114,9 @@ from file_transfer import FileTransfer
 @sio.event
 def download_file(data):
     try:
-        
-        filepath = data["filepath"]
-        
+
+        filepath = data["filename"]
+
         encoded_content = FileTransfer.read_file(
             filepath
         )
@@ -136,12 +136,11 @@ def download_file(data):
             "download_result",
             {
                 "controller_sid": data["controller_sid"],
-                "filename": os.path.basename(filepath),
+                "filename": os.path.basename(data.get("filename", "unknown file")),
                 "status": "error",
                 "message": str(e)
             }
         )
-        
 
 # server connection 
 
