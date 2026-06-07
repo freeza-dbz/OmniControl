@@ -1,9 +1,11 @@
 import socketio
 import time
+import threading
 
 
 sio = socketio.Client()
 online_agents = {}
+operation_finished = threading.Event()
 
 
 @sio.event
@@ -14,16 +16,20 @@ def connect():
 
 @sio.event
 def command_result(data):
-    print("\n----------COMMAND RESULT---------- \n")
-    output = data.get("output")
-    message = data.get("message")
-    if output is not None:
-        print(output)
-    elif message is not None:
-        print(f"Error : {message}")
-    else:
-        print(f"Received an unexpected result format: {data}")
-    print("--------------------\n")
+    try:
+        time.sleep(0.5)
+        print("\n----------COMMAND RESULT---------- \n")
+        output = data.get("output")
+        message = data.get("message")
+        if output is not None:
+            print(output)
+        elif message is not None:
+            print(f"Error : {message}")
+        else:
+            print(f"Received an unexpected result format: {data}")
+        print("--------------------\n")
+    finally:
+        operation_finished.set()
 
 # agents listing
 
@@ -31,16 +37,20 @@ def command_result(data):
 def agents_update(data):
     
     global online_agents
-    online_agents = data or {}
-    
-    print("\n----------ONLINE AGENTS UPDATE----------")
-    if not data:
-        print("No agents online.")
-    else:
-        print("Online agents:")
-        for device_id, agent_info in online_agents.items():
-            print(f"  - {device_id} ({agent_info.get('hostname', 'N/A')})")
-    print("--------------------\n")
+    try:
+        time.sleep(0.5)
+        online_agents = data or {}
+        
+        print("\n----------ONLINE AGENTS UPDATE----------")
+        if not data:
+            print("No agents online.")
+        else:
+            print("Online agents:")
+            for device_id, agent_info in online_agents.items():
+                print(f"  - {device_id} ({agent_info.get('hostname', 'N/A')})")
+        print("--------------------\n")
+    finally:
+        operation_finished.set()
 
 # server connection
 
@@ -69,13 +79,15 @@ def upload_file(target, filepath):
 @sio.event
 def upload_result(data):
     
-    # result of file tranfer from server
-    
-    print("\n----------FILE UPLOAD----------")
-    
-    print(data)
-    
-    print("--------------------\n")
+    try:
+        time.sleep(0.5)
+        # result of file tranfer from server
+        
+        print("\n----------FILE UPLOAD----------")
+        print(data)
+        print("--------------------\n")
+    finally:
+        operation_finished.set()
 
 
 # download file
@@ -84,20 +96,23 @@ from file_manager import FileManager
 
 @sio.event
 def download_result(data):
-    if data["status"] == "error":
+    try:
+        time.sleep(0.5)
+        if data.get("status") == "error":
+            print("\n----------FILE DOWNLOAD ERROR----------")
+            print(f"Error downloading '{data.get('filename', 'N/A')}': {data.get('message', 'Unknown error')}")
+            print("--------------------\n")
+            return
         
-        print("\n----------FILE DOWNLOAD ERROR----------")
-        print(f"Error downloading '{data['filename']}': {data['message']}") 
+        filepath = FileManager.save_downloaded_file(
+            data["filename"], data["content"]
+        )
         
-        return
-    
-    filepath = FileManager.save_downloaded_file(
-        data["filename"], data["content"]
-    )
-    
-    print("\n----------FILE DOWNLOAD SUCCESS----------")
-    print(f"File downloaded successfully to: {filepath}")
-    
+        print("\n----------FILE DOWNLOAD SUCCESS----------")
+        print(f"File downloaded successfully to: {filepath}")
+        print("--------------------\n")
+    finally:
+        operation_finished.set()
     
 def request_file_download(target, remote_filepath):
     
@@ -135,8 +150,12 @@ try:
         if choice == "1":
             
             print("--> Requesting agent list...")
+            operation_finished.clear()
             sio.emit("get_agents")
-            time.sleep(1)  
+            operation_finished.wait(timeout=5.0)
+            time.sleep(1)
+            
+        # Command Execution 
         
         elif choice == "2":
             
@@ -147,12 +166,17 @@ try:
             while True:
                 command = input(f"Command for '{target}': ")
                 print("--> Executing command...")
-                time.sleep(1)
+                operation_finished.clear()
                 sio.emit("execute_command", {"target": target, "command": command})
-
+                print("--> Waiting for result...")
+                operation_finished.wait()
+                
                 another = input(f"Execute another command on '{target}'? (y/n): ").lower()
                 if another not in ['y', 'yes']:
                     break
+            time.sleep(1)
+
+        # File Transfer
 
         elif choice == "3":
             
@@ -163,22 +187,37 @@ try:
             while True:
                 filepath = input("File Path : ").strip(' "\'')
                 print("--> Uploading file...")
-                time.sleep(1)
+                operation_finished.clear()
                 upload_file(target, filepath)
+                print("--> Waiting for result...")
+                operation_finished.wait()
                 
-                another = input(f"Execute another command on '{target}'? (y/n): ").lower()
+                another = input(f"Upload another file to '{target}'? (y/n): ").lower()
                 if another not in ['y', 'yes']:
                     break
+            time.sleep(1)
+        
+        # Download file
         
         elif choice == "4":
             target = input("Target Device ID : ")
             if not is_agent_available(target):
                 continue
             
-            remote_filepath = input("Remote File Path : ").strip(' "\'')
-            print("--> Requesting file download...")
+            while True:
+                remote_filepath = input("Remote File Path : ").strip(' "\'')
+                print("--> Requesting file download...")
+                operation_finished.clear()
+                request_file_download(target, remote_filepath)
+                print("--> Waiting for download...")
+                operation_finished.wait()
+
+                another = input(f"Download another file from '{target}'? (y/n): ").lower()
+                if another not in ['y', 'yes']:
+                    break
             time.sleep(1)
-            request_file_download(target, remote_filepath)
+        
+        # Exit
         
         elif choice == "5":
             
@@ -189,6 +228,7 @@ try:
         
         else:
             print("Invalid choice, please try again.")
+            time.sleep(1)
             
 except KeyboardInterrupt:
     

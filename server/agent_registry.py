@@ -1,3 +1,5 @@
+import time
+
 class AgentRegistry:
     
     # Manages the collection of connected agents
@@ -14,7 +16,8 @@ class AgentRegistry:
             "sid": sid,
             "hostname": data["hostname"],
             "username": data["username"],
-            "os": data["os"]
+            "os": data["os"],
+            "last_seen": time.time()
         }
         return device_id
 
@@ -45,6 +48,30 @@ class AgentRegistry:
             }
             for device_id, agent_data in self.agents.items()
         }
+
+    def update_last_seen(self, device_id: str):
+        """Updates the last_seen timestamp for a given agent."""
+        if device_id in self.agents:
+            self.agents[device_id]["last_seen"] = time.time()
+            return True
+        return False
+
+    def prune_stale_agents(self, timeout: int) -> list[str]:
+        """
+        Removes agents that have not been seen within the timeout period.
+        Returns a list of removed device_ids.
+        """
+        stale_time = time.time() - timeout
+        stale_agents = [
+            device_id
+            for device_id, agent_info in self.agents.items()
+            if agent_info["last_seen"] < stale_time
+        ]
+        
+        for device_id in stale_agents:
+            del self.agents[device_id]
+            
+        return stale_agents
 
     def get_sid(self, device_id: str) -> str | None:
         

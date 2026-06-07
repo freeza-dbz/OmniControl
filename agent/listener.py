@@ -2,11 +2,13 @@ import os
 
 import socketio
 import subprocess
+import threading
 import time
 
 
 DEVICE_ID = "PC-001"
-
+HEARTBEAT_INTERVAL = 5  # seconds
+ 
 sio = socketio.Client()
 
 # connecting to server
@@ -20,7 +22,17 @@ def connect():
     sio.emit(
         "register_agent", get_agent_metadata(DEVICE_ID)
     )
+    
+    # Start sending heartbeats in a background thread
+    heartbeat_thread = threading.Thread(target=send_heartbeat, daemon=True)
+    heartbeat_thread.start()
 
+def send_heartbeat():
+    """Sends a heartbeat to the server at regular intervals."""
+    while sio.connected:
+        time.sleep(HEARTBEAT_INTERVAL)
+        sio.emit("heartbeat", {"device_id": DEVICE_ID})
+        
 
 @sio.event
 def registration_success(data):
