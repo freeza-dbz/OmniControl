@@ -5,3 +5,6 @@ DOWNLOAD_FILE = "download_file"
 DOWNLOAD_RESULT = "download_result"
 
 HEARTBEAT = "heartbeat"
+
+SCREENSHOT = "screenshot"
+SCREENSHOT_RESULT = "screenshot_result"

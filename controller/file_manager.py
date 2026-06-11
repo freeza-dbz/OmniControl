@@ -1,7 +1,10 @@
 import base64
 import os
+from datetime import datetime
 
 class FileManager:
+    
+    # File transfer
     
     @staticmethod
     def prepare_upload(filepath):
@@ -19,6 +22,8 @@ class FileManager:
             "filename": os.path.basename(filepath),
             "content": encode
         }
+    
+    # File transfer - Save downloaded file
     
     @staticmethod
     def save_downloaded_file(filename, encoded_content):
@@ -42,3 +47,31 @@ class FileManager:
             )
             
         return save_path
+    
+    # Screenshot handling
+    
+    @staticmethod
+    def save_screenshot(encoded_content):
+        
+        os.makedirs(
+            "screenshot",
+            exist_ok=True
+        )
+        
+        filename= (
+            datetime.now()
+            .strftime("%Y-%m-%d_%H-%M-%S")
+            +".png"
+        )
+        
+        path = os.path.join(
+            "screenshot",
+            filename
+        )
+        
+        with open( path, "wb") as f:
+            f.write(
+                base64.b64decode(encoded_content)
+            )
+            
+        return path

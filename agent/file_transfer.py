@@ -1,10 +1,14 @@
 import os
 import base64
+import io 
+import pyautogui
 
 
 class FileTransfer:
     
     SAVE_DIRECTORY = "received_files"
+    
+    # File transfer
     
     @staticmethod
     def save_file(filename, encoded_content):
@@ -28,6 +32,8 @@ class FileTransfer:
             
         return file_path
     
+    # File transfer - Read file for download
+    
     @staticmethod
     def read_file(file_path):
         
@@ -37,3 +43,23 @@ class FileTransfer:
                 ).decode()
             
         return encoded_content
+    
+    # Screenshot capture
+    
+    @staticmethod
+    def capture_screenshot():
+        
+        image = pyautogui.screenshot()
+        
+        buffer = io.BytesIO()
+        
+        image.save(
+            buffer,
+            format="PNG"
+        )
+        
+        screenshot_data = base64.b64encode(
+            buffer.getvalue()
+        ).decode()  
+        
+        return screenshot_data  
