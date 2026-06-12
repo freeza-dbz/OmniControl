@@ -186,6 +186,77 @@ def screenshot(data):
         )
 
 
+#  Process management
+
+from process_manager import ProcessManager
+
+@sio.event
+def get_processes(data):
+    
+    # List Of processes
+    
+    processes = (
+        ProcessManager
+        .list_processes()
+    )
+
+    sio.emit(
+        "process_list",
+        {
+            "controller_sid":
+                data["controller_sid"],
+            "processes":
+                processes
+        }
+    )
+    
+@sio.event
+def kill_process(data):
+    
+    # Kill process 
+    
+    result = (
+        ProcessManager
+        .kill_process(
+            data["pid"]
+        )
+    )
+
+    result["controller_sid"] = (
+        data["controller_sid"]
+    )
+
+    sio.emit(
+        "kill_result",
+        result
+    )
+    
+
+@sio.event
+def start_process(data):
+
+    # Start process
+        
+    result = (
+        ProcessManager
+        .start_process(
+            data["command"]
+        )
+    )
+
+    result["controller_sid"] = (
+        data["controller_sid"]
+    )
+
+    sio.emit(
+        "start_result",
+        result
+    )
+    
+    
+        
+
+
 # server connection 
 
 @sio.event

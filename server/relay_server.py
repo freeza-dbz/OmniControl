@@ -247,6 +247,107 @@ def screenshot_result(sid, data):
         print(f"Warning: Received 'screenshot_result' from agent {sid} without a 'controller_sid'. Cannot forward.")
 
 
+# Process management
+
+@sio.event
+def get_processes(sid, data):
+    
+    # Get Process list
+
+    target = data["target"]
+
+    target_sid = (
+        agent_registry.get_sid(target)
+        if agent_registry.is_agent_online(target)
+        else None
+    )
+
+    sio.emit(
+        "get_processes",
+        {
+            "controller_sid": sid
+        },
+        to=target_sid
+    )
+    
+@sio.event
+def process_list(sid, data):
+
+    # Forwarding Process list back to controller
+
+    sio.emit(
+        "process_list",
+        data,
+        to=data["controller_sid"]
+    )
+
+
+@sio.event
+def kill_process(sid, data):
+    
+    # Kill process
+
+    target = data["target"]
+
+    target_sid = (
+        agent_registry.get_sid(target)
+    )
+
+    sio.emit(
+        "kill_process",
+        {
+            "controller_sid": sid,
+            "pid": data["pid"]
+        },
+        to=target_sid
+    )
+    
+@sio.event
+def kill_result(sid, data):
+
+    # Forwarding Kill process result back to controller
+
+    sio.emit(
+        "kill_result",
+        data,
+        to=data["controller_sid"]
+    )
+    
+
+@sio.event
+def start_process(sid, data):
+    
+    # Start process
+
+    target = data["target"]
+
+    target_sid = (
+        agent_registry.get_sid(target)
+    )
+
+    sio.emit(
+        "start_process",
+        {
+            "controller_sid": sid,
+            "command": data["command"]
+        },
+        to=target_sid
+    )    
+
+@sio.event
+def start_result(sid, data):
+    
+    # Forwarding Start process result back to controller
+
+    sio.emit(
+        "start_result",
+        data,
+        to=data["controller_sid"]
+    )
+
+
+
+    
 
 if __name__ == "__main__":
     print("----------Relay server started on port 5000----------")

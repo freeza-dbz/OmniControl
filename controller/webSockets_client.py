@@ -27,7 +27,7 @@ def command_result(data):
             print(f"Error : {message}")
         else:
             print(f"Received an unexpected result format: {data}")
-        print("--------------------\n")
+        print("=====================\n")
     finally:
         operation_finished.set()
 
@@ -48,7 +48,7 @@ def agents_update(data):
             print("Online agents:")
             for device_id, agent_info in online_agents.items():
                 print(f"  - {device_id} ({agent_info.get('hostname', 'N/A')})")
-        print("--------------------\n")
+        print("=====================\n")
     finally:
         operation_finished.set()
 
@@ -85,7 +85,7 @@ def upload_result(data):
         
         print("\n----------FILE UPLOAD----------")
         print(data)
-        print("--------------------\n")
+        print("=====================\n")
     finally:
         operation_finished.set()
 
@@ -101,7 +101,7 @@ def download_result(data):
         if data.get("status") == "error":
             print("\n----------FILE DOWNLOAD ERROR----------")
             print(f"Error downloading '{data.get('filename', 'N/A')}': {data.get('message', 'Unknown error')}")
-            print("--------------------\n")
+            print("=====================\n")
             return
         
         filepath = FileManager.save_downloaded_file(
@@ -110,7 +110,7 @@ def download_result(data):
         
         print("\n----------FILE DOWNLOAD SUCCESS----------")
         print(f"File downloaded successfully to: {filepath}")
-        print("--------------------\n")
+        print("=====================\n")
     finally:
         operation_finished.set()
     
@@ -139,7 +139,7 @@ def screenshot_result(data):
             print(
                 f"ERROR: {data['message']}"
             )
-            print("--------------------\n")
+            print("=====================\n")
             return
 
         path = (
@@ -150,7 +150,7 @@ def screenshot_result(data):
 
         print("\n----------SCREENSHOT SAVED----------")
         print(f"Screenshot saved to: {path}")
-        print("--------------------\n")
+        print("=====================\n")
     finally:
         operation_finished.set()
 
@@ -162,6 +162,90 @@ def request_screenshot( target ):
             "target": target
         }
     )
+
+
+# Process management
+
+@sio.event
+def process_list(data):
+    
+    try:
+        # Process List 
+
+        print("\n---------- PROCESSES ----------")
+
+        for proc in data["processes"][:30]:
+
+            print(
+                f"{proc['pid']} | "
+                f"{proc['name']}"
+            )
+
+        print("=====================\n")
+    finally:
+        operation_finished.set()
+
+@sio.event
+def kill_result(data):
+    
+    # Kill process result
+    try:
+        print("\n---------- KILL RESULT ----------")
+
+        print(data["message"])
+
+        print("=======================\n")
+    finally:
+        operation_finished.set()
+
+@sio.event
+def start_result(data):
+    
+    # Start process result
+    try:
+        print( "\n---------- START RESULT ----------" )
+        print( data["message"] )
+        print("========================\n")
+    finally:
+        operation_finished.set()
+     
+
+def request_processes(target):
+    
+    # request process list from server
+
+    time.sleep(0.5)
+    sio.emit(
+        "get_processes",
+        {
+            "target": target
+        }
+    )
+    
+def kill_remote_process( target, pid ):
+    
+    # request process kill from server
+
+    sio.emit(
+        "kill_process",
+        {
+            "target": target,
+            "pid": pid
+        }
+    )
+
+def start_remote_process( target, command ):
+    
+    # request process start from server
+
+    sio.emit(
+        "start_process",
+        {
+            "target": target,
+            "command": command
+        }
+    )
+
 
 # menu
 
@@ -180,7 +264,8 @@ try:
         print("3. File Transfer")
         print("4. Download File")
         print("5. Request Screenshot")
-        print("6. Exit")
+        print("6. Process Management")
+        print("7. Exit")
         choice = input("Choice: ")
 
         if choice == "1":
@@ -267,10 +352,59 @@ try:
             print("--> Waiting for screenshot...")
             operation_finished.wait()
             time.sleep(1)
-        
-        # Exit (Corrected choice from 5 to 6)
+            
+        # Process management
         
         elif choice == "6":
+            
+            target = input("Target Device ID : ")
+            if not is_agent_available(target):
+                continue
+            
+            while True:
+                print("\nProcess Management Options:")
+                print("1. List Processes")
+                print("2. Kill Process")
+                print("3. Start Process")
+                print("4. Back to Main Menu")
+                pm_choice = input("Choice: ")
+
+                if pm_choice == "1":
+                    print("--> Requesting process list...")
+                    operation_finished.clear()
+                    request_processes(target)
+                    print("--> Waiting for process list...")
+                    operation_finished.wait()
+
+                elif pm_choice == "2":
+                    pid = input("Process ID to kill: ")
+                    print(f"--> Requesting to kill process {pid}...")
+                    operation_finished.clear()
+                    kill_remote_process(target, pid)
+                    print("--> Waiting for kill result... (Returning to main menu)")
+                    operation_finished.wait()
+                    break # Go back to main menu after killing
+
+                elif pm_choice == "3":
+                    command = input("Command to start process: ")
+                    print(f"--> Requesting to start process with command '{command}'...")
+                    operation_finished.clear()
+                    start_remote_process(target, command)
+                    print("--> Waiting for start result... (Returning to main menu)")
+                    operation_finished.wait()
+                    break # Go back to main menu after starting
+
+                elif pm_choice == "4":
+                    break
+
+                else:
+                    print("Invalid choice, please try again.")
+                    time.sleep(1)
+            time.sleep(1)
+        
+        # Exit 
+        
+        elif choice == "7":
             
             print("Disconnecting...")
             time.sleep(0.5)

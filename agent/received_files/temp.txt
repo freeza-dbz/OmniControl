@@ -1,3 +1,0 @@
-Hello this is a sample file to test file transfer of OmniControl
-
-Dell Laptop
