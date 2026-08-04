@@ -4,6 +4,12 @@ import eventlet.wsgi
 import os
 import sys
 
+
+from shared.logger import get_logger
+
+logger = get_logger("server")
+
+
 # Add project root to sys.path to allow importing 'shared'
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
@@ -52,6 +58,9 @@ def require_role(required_role):
 
 @sio.event
 def connect(sid, environ, auth=None):
+    
+    logger.info(f"Client attempting to connect: {sid}")
+    
     print("----------CLIENT CONNECTED----------", sid)
     if not auth or not isinstance(auth, dict):
         print(f"Connection refused for {sid}: No authentication provided.")
@@ -82,6 +91,9 @@ def connect(sid, environ, auth=None):
 
 @sio.event
 def disconnect(sid):
+    
+    logger.info(f"Client disconnected: {sid}")
+    
     print("----------CLIENT DISCONNECTED----------", sid)
     device_to_remove = agent_registry.remove(sid)
     if device_to_remove:
@@ -94,6 +106,9 @@ def disconnect(sid):
 @require_role("agent")
 def register_agent(sid, data):
     device_id = agent_registry.register(sid, data)
+    
+    logger.info(f"Agent registered: {device_id} from {sid}")
+    
     print("----------AGENT REGISTERED----------", device_id)
     
     print("\n=== AGENT REGISTERED ===")
@@ -115,6 +130,8 @@ def register_agent(sid, data):
 def get_agents(sid):
     
     # Handles a request from a controller to get the current agent list.
+    
+    logger.info(f"Client {sid} requested agent list.")
     
     print(f"----------Client {sid} requested agent list.----------")
     public_agents = _get_public_agents()
@@ -157,6 +174,8 @@ def execute_command(sid, data):
 def command_result(sid, data):
 
 # forwarding command results back to controller
+
+    logger.info(f"Agent {sid} sent command result to controller {data['controller_sid']}")
 
     controller_sid = data["controller_sid"]
 
@@ -204,6 +223,8 @@ def upload_result(sid, data):
 
 # Forwarding Transfer file result back to controller
 
+    logger.info(f"Agent {sid} sent upload result to controller {data.get('controller_sid', 'unknown')}")
+
     controller_sid = data.get("controller_sid")
     if controller_sid:
         sio.emit("upload_result", data, to=controller_sid)
@@ -249,6 +270,7 @@ def download_result(sid, data):
     
     # Forwarding Download file result back to controller
     
+    logger.info(f"Agent {sid} sent download result to controller {data.get('controller_sid', 'unknown')}")  
     controller_sid = data["controller_sid"]
 
     sio.emit(
@@ -295,6 +317,8 @@ def screenshot(sid, data):
 def screenshot_result(sid, data):
     
     # Forwarding Screenshot result back to controller
+    
+    logger.info(f"Agent {sid} sent screenshot result to controller {data.get('controller_sid', 'unknown')}")
     
     controller_sid = data.get("controller_sid")
     if controller_sid:
@@ -385,6 +409,8 @@ def kill_result(sid, data):
 
 # Forwarding Kill process result back to controller
 
+    logger.info(f"Agent {sid} sent kill result to controller {data.get('controller_sid', 'unknown')}")
+
     sio.emit(
         "kill_result",
         data,
@@ -398,6 +424,8 @@ def start_process(sid, data):
     
     # Start process
 
+    logger.info(f"Controller {sid} requested to start process '{data['command']}' on agent '{data['target']}'")
+    
     target = data["target"]
 
     if not agent_registry.is_agent_online(target):
@@ -427,6 +455,8 @@ def start_process(sid, data):
 def start_result(sid, data):
     
     # Forwarding Start process result back to controller
+    
+    logger.info(f"Agent {sid} sent start process result to controller {data.get('controller_sid', 'unknown')}")
 
     sio.emit(
         "start_result",

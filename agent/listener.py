@@ -5,6 +5,10 @@ import subprocess
 import threading
 import time
 
+from shared.logger import get_logger
+
+logger = get_logger("agent")
+
 
 DEVICE_ID = "PC-001"
 HEARTBEAT_INTERVAL = 5  # seconds
@@ -17,6 +21,9 @@ from metadata import get_agent_metadata
 
 @sio.event
 def connect():
+    
+    logger.info("Connected to server.")
+    
     print("----------CONNECTED TO SERVER----------")
 
     sio.emit(
@@ -44,6 +51,8 @@ def registration_success(data):
 def run_command(data):
     command = data["command"]
     controller_sid = data["controller_sid"]
+    
+    logger.info(f"Executing command from controller {controller_sid}: {command}")
 
     print("----------COMMAND----------", command)
 
@@ -95,6 +104,8 @@ def upload_file(data):
             data["content"]
         )
         
+        logger.info(f"File received from controller {controller_sid}: {filepath}")
+        
         print("----------FILE TRANSFER----------")
         
         print("File Received : ",  filepath)
@@ -133,6 +144,8 @@ def download_file(data):
             filepath
         )
         
+        logger.info(f"File sent to controller {data['controller_sid']}: {filepath}")
+        
         sio.emit(
             "download_result",
             {
@@ -164,6 +177,10 @@ def screenshot(data):
     try:
          
         encoded_screenshot = FileTransfer.capture_screenshot()
+        
+        logger.info(f"Screenshot captured and sent to controller {data['controller_sid']})")
+        
+        print("----------SCREENSHOT----------")
         
         sio.emit(
             "screenshot_result",
@@ -199,6 +216,8 @@ def get_processes(data):
         ProcessManager
         .list_processes()
     )
+    
+    logger.info(f"Process list sent to controller {data['controller_sid']}")
 
     sio.emit(
         "process_list",
@@ -214,6 +233,8 @@ def get_processes(data):
 def kill_process(data):
     
     # Kill process 
+    
+    logger.info(f"Attempting to kill process {data['pid']} from controller {data['controller_sid']}")
     
     result = (
         ProcessManager
@@ -236,6 +257,8 @@ def kill_process(data):
 def start_process(data):
 
     # Start process
+        
+    logger.info(f"Attempting to start process '{data['command']}' from controller {data['controller_sid']}")
         
     result = (
         ProcessManager
@@ -261,6 +284,9 @@ def start_process(data):
 
 @sio.event
 def disconnect():
+    
+    logger.info("Disconnected from server.")
+    
     print("----------DISCONNECTED----------")
 
 

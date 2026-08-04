@@ -7,6 +7,10 @@ import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
+from shared.logger import get_logger
+
+logger = get_logger("client")
+
 from shared.auth import CONTROLLER_TOKEN
 
 
@@ -17,6 +21,9 @@ operation_finished = threading.Event()
 
 @sio.event
 def connect():
+    
+    logger.info("Client connected to server.")
+    
     print("----------CONNECTED TO SERVER----------")
 
 # command results
@@ -25,6 +32,9 @@ def connect():
 def command_result(data):
     try:
         time.sleep(0.5)
+        
+        logger.info(f"Received command result from agent {data.get('device_id', 'unknown')} for controller {data.get('controller_sid', 'unknown')}")
+        
         print("\n----------COMMAND RESULT---------- \n")
         output = data.get("output")
         message = data.get("message")
@@ -48,6 +58,8 @@ def agents_update(data):
         time.sleep(0.5)
         online_agents = data or {}
         
+        logger.info(f"Received agents update from server: {len(online_agents)} agents online.")
+        
         print("\n----------ONLINE AGENTS UPDATE----------")
         if not data:
             print("No agents online.")
@@ -63,7 +75,7 @@ def agents_update(data):
 
 @sio.event
 def disconnect():
-    print("\n----------DISCONNECTED----------")
+    logger.info("Client disconnected from server.")
 
 
 sio.connect("http://localhost:5000", auth={"token": CONTROLLER_TOKEN, "type": "controller"})
@@ -88,7 +100,7 @@ def upload_result(data):
     
     try:
         time.sleep(0.5)
-        # result of file tranfer from server
+        logger.info(f"Received file upload result from server for controller {data.get('controller_sid', 'unknown')}")
         
         print("\n----------FILE UPLOAD----------")
         print(data)
@@ -105,6 +117,7 @@ from file_manager import FileManager
 def download_result(data):
     try:
         time.sleep(0.5)
+        logger.info(f"Received file download result from server for controller {data.get('controller_sid', 'unknown')}")
         if data.get("status") == "error":
             print("\n----------FILE DOWNLOAD ERROR----------")
             print(f"Error downloading '{data.get('filename', 'N/A')}': {data.get('message', 'Unknown error')}")
@@ -141,6 +154,7 @@ def screenshot_result(data):
 
     try:
         time.sleep(0.5)
+        logger.info(f"Received screenshot result from server for controller {data.get('controller_sid', 'unknown')}")
         if data["status"] == "error":
             print("\n----------SCREENSHOT ERROR----------")
             print(
@@ -177,6 +191,7 @@ def request_screenshot( target ):
 def process_list(data):
     
     try:
+        logger.info(f"Received process list from server for controller {data.get('controller_sid', 'unknown')}")
         # Process List 
 
         print("\n---------- PROCESSES ----------")
@@ -197,6 +212,7 @@ def kill_result(data):
     
     # Kill process result
     try:
+        logger.info(f"Received kill process result from server for controller {data.get('controller_sid', 'unknown')}")
         print("\n---------- KILL RESULT ----------")
 
         print(data["message"])
@@ -210,6 +226,7 @@ def start_result(data):
     
     # Start process result
     try:
+        logger.info(f"Received start process result from server for controller {data.get('controller_sid', 'unknown')}")
         print( "\n---------- START RESULT ----------" )
         print( data["message"] )
         print("========================\n")
