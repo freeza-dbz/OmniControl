@@ -1,6 +1,13 @@
 import socketio
 import time
 import threading
+import sys
+import os
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, project_root)
+
+from shared.auth import CONTROLLER_TOKEN
 
 
 sio = socketio.Client()
@@ -59,7 +66,7 @@ def disconnect():
     print("\n----------DISCONNECTED----------")
 
 
-sio.connect("http://localhost:5000")
+sio.connect("http://localhost:5000", auth={"token": CONTROLLER_TOKEN, "type": "controller"})
 
 # file manager
 

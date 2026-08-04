@@ -265,7 +265,8 @@ def disconnect():
 
 
 try:
-    sio.connect("http://localhost:5000")
+    from metadata import AGENT_TOKEN
+    sio.connect("http://localhost:5000", auth={"token": AGENT_TOKEN, "type": "agent"})
     sio.wait()
 except KeyboardInterrupt:
     print("\n Disconnecting from server.")

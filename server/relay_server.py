@@ -1,7 +1,15 @@
 import socketio
 import eventlet
 import eventlet.wsgi
+import os
+import sys
+
+# Add project root to sys.path to allow importing 'shared'
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, project_root)
+
 from agent_registry import AgentRegistry
+from shared.auth import AGENT_TOKEN, CONTROLLER_TOKEN
 
 
 sio = socketio.Server(
@@ -26,10 +34,48 @@ def broadcast_agent_update():
     sio.emit("agents_update", public_agents)
 
 # client connection
+import functools
+
+def require_role(required_role):
+    def decorator(handler):
+        @functools.wraps(handler)
+        def wrapper(sid, *args, **kwargs):
+            session = sio.get_session(sid)
+            if not session or session.get("role") != required_role:
+                print(f"Access Denied for {sid}: Needs {required_role} role")
+                if required_role == "controller":
+                    sio.emit("error", {"message": "Unauthorized: Controller access required"}, to=sid)
+                return
+            return handler(sid, *args, **kwargs)
+        return wrapper
+    return decorator
 
 @sio.event
-def connect(sid, environ):
+def connect(sid, environ, auth=None):
     print("----------CLIENT CONNECTED----------", sid)
+    if not auth or not isinstance(auth, dict):
+        print(f"Connection refused for {sid}: No authentication provided.")
+        raise socketio.exceptions.ConnectionRefusedError("Authentication required")
+
+    token = auth.get("token")
+    client_type = auth.get("type")
+
+    if client_type == "agent":
+        if token != AGENT_TOKEN:
+            print(f"Connection refused for agent {sid}: Invalid token.")
+            raise socketio.exceptions.ConnectionRefusedError("Invalid agent token")
+        print(f"Agent authenticated: {sid}")
+        sio.save_session(sid, {"role": "agent"})
+    elif client_type == "controller":
+        if token != CONTROLLER_TOKEN:
+            print(f"Connection refused for controller {sid}: Invalid token.")
+            raise socketio.exceptions.ConnectionRefusedError("Invalid controller token")
+        print(f"Controller authenticated: {sid}")
+        sio.save_session(sid, {"role": "controller"})
+    else:
+        print(f"Connection refused for {sid}: Unknown client type {client_type}")
+        raise socketio.exceptions.ConnectionRefusedError("Invalid client type")
+
     public_agents = _get_public_agents()
     sio.emit("agents_update", public_agents, to=sid)
 
@@ -45,6 +91,7 @@ def disconnect(sid):
 # agent registeration
 
 @sio.event
+@require_role("agent")
 def register_agent(sid, data):
     device_id = agent_registry.register(sid, data)
     print("----------AGENT REGISTERED----------", device_id)
@@ -64,6 +111,7 @@ def register_agent(sid, data):
     broadcast_agent_update()
 
 @sio.event
+@require_role("controller")
 def get_agents(sid):
     
     # Handles a request from a controller to get the current agent list.
@@ -76,6 +124,7 @@ def get_agents(sid):
 # forwarding command to agent
 
 @sio.event
+@require_role("controller")
 def execute_command(sid, data):
     target = data["target"]
     command = data["command"]
@@ -104,6 +153,7 @@ def execute_command(sid, data):
 
  
 @sio.event
+@require_role("agent")
 def command_result(sid, data):
 
 # forwarding command results back to controller
@@ -119,6 +169,7 @@ def command_result(sid, data):
 #file transfer
 
 @sio.event
+@require_role("controller")
 def upload_file(sid, data):
    
     target = data["target"]
@@ -148,6 +199,7 @@ def upload_file(sid, data):
 
 
 @sio.event
+@require_role("agent")
 def upload_result(sid, data):
 
 # Forwarding Transfer file result back to controller
@@ -161,6 +213,7 @@ def upload_result(sid, data):
 # Download file 
 
 @sio.event
+@require_role("controller")
 def download_file(sid, data):
     
     target = data["target"]
@@ -191,6 +244,7 @@ def download_file(sid, data):
     
     
 @sio.event
+@require_role("agent")
 def download_result(sid, data):
     
     # Forwarding Download file result back to controller
@@ -208,6 +262,7 @@ def download_result(sid, data):
 # Screenshot
 
 @sio.event()
+@require_role("controller")
 def screenshot(sid, data):
     
     target = data["target"]
@@ -236,6 +291,7 @@ def screenshot(sid, data):
     )
     
 @sio.event()
+@require_role("agent")
 def screenshot_result(sid, data):
     
     # Forwarding Screenshot result back to controller
@@ -250,17 +306,27 @@ def screenshot_result(sid, data):
 # Process management
 
 @sio.event
+@require_role("controller")
 def get_processes(sid, data):
     
     # Get Process list
 
     target = data["target"]
 
-    target_sid = (
-        agent_registry.get_sid(target)
-        if agent_registry.is_agent_online(target)
-        else None
-    )
+    if not agent_registry.is_agent_online(target):
+        sio.emit(
+            "process_list",
+            {
+                "controller_sid": sid,
+                "status": "error",
+                "message": f"Agent '{target}' is offline.",
+                "processes": []
+            },
+            to=sid
+        )
+        return
+
+    target_sid = agent_registry.get_sid(target)
 
     sio.emit(
         "get_processes",
@@ -271,6 +337,7 @@ def get_processes(sid, data):
     )
     
 @sio.event
+@require_role("agent")
 def process_list(sid, data):
 
     # Forwarding Process list back to controller
@@ -283,15 +350,25 @@ def process_list(sid, data):
 
 
 @sio.event
+@require_role("controller")
 def kill_process(sid, data):
     
     # Kill process
 
     target = data["target"]
 
-    target_sid = (
-        agent_registry.get_sid(target)
-    )
+    if not agent_registry.is_agent_online(target):
+        sio.emit(
+            "kill_result",
+            {
+                "status": "error",
+                "message": f"Agent '{target}' is offline."
+            },
+            to=sid
+        )
+        return
+
+    target_sid = agent_registry.get_sid(target)
 
     sio.emit(
         "kill_process",
@@ -303,9 +380,10 @@ def kill_process(sid, data):
     )
     
 @sio.event
+@require_role("agent")
 def kill_result(sid, data):
 
-    # Forwarding Kill process result back to controller
+# Forwarding Kill process result back to controller
 
     sio.emit(
         "kill_result",
@@ -315,15 +393,25 @@ def kill_result(sid, data):
     
 
 @sio.event
+@require_role("controller")
 def start_process(sid, data):
     
     # Start process
 
     target = data["target"]
 
-    target_sid = (
-        agent_registry.get_sid(target)
-    )
+    if not agent_registry.is_agent_online(target):
+        sio.emit(
+            "start_result",
+            {
+                "status": "error",
+                "message": f"Agent '{target}' is offline."
+            },
+            to=sid
+        )
+        return
+
+    target_sid = agent_registry.get_sid(target)
 
     sio.emit(
         "start_process",
@@ -335,6 +423,7 @@ def start_process(sid, data):
     )    
 
 @sio.event
+@require_role("agent")
 def start_result(sid, data):
     
     # Forwarding Start process result back to controller

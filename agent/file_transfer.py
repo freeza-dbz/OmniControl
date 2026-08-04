@@ -12,17 +12,23 @@ class FileTransfer:
     
     @staticmethod
     def save_file(filename, encoded_content):
-        
+        # Extract only the base name to prevent directory traversal
+        safe_filename = os.path.basename(filename)
+        if not safe_filename:
+            raise ValueError("Invalid filename")
+
         os.makedirs(
             FileTransfer.SAVE_DIRECTORY, 
             exist_ok=True
         )
         
-        file_path = os.path.join(
-            FileTransfer.SAVE_DIRECTORY, 
-            filename
-        )
+        # Build path and verify it is strictly within SAVE_DIRECTORY
+        base_dir = os.path.abspath(FileTransfer.SAVE_DIRECTORY)
+        file_path = os.path.abspath(os.path.join(base_dir, safe_filename))
         
+        if not file_path.startswith(base_dir):
+            raise PermissionError("Path traversal detected")
+            
         with open(file_path, "wb") as file:
             file.write(
                 base64.b64decode(
@@ -36,8 +42,14 @@ class FileTransfer:
     
     @staticmethod
     def read_file(file_path):
+        # Prevent accessing files outside of the project root
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        target_path = os.path.abspath(file_path)
         
-        with open(file_path, "rb") as file:
+        if not target_path.startswith(project_root):
+            raise PermissionError("Path traversal detected - accessing files outside project root is forbidden")
+
+        with open(target_path, "rb") as file:
             encoded_content = base64.b64encode(
                 file.read()
                 ).decode()
