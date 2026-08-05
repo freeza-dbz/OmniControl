@@ -5,17 +5,22 @@ import os
 import sys
 
 
-from shared.logger import get_logger
+from agent_registry import AgentRegistry
+from shared.auth import AGENT_TOKEN, CONTROLLER_TOKEN
 
+
+from shared.logger import get_logger
 logger = get_logger("server")
 
 
+from shared.validator import Validator
+
+
 # Add project root to sys.path to allow importing 'shared'
+
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-from agent_registry import AgentRegistry
-from shared.auth import AGENT_TOKEN, CONTROLLER_TOKEN
 
 
 sio = socketio.Server(
@@ -60,13 +65,22 @@ def require_role(required_role):
 def connect(sid, environ, auth=None):
     
     logger.info(f"Client attempting to connect: {sid}")
+    token = auth.get("token")
+    
+    if not Validator.validate_token(token):
+        sio.disconnect(sid)
+        return
+    
+    if not Validator.validate_sid(sid):
+        sio.disconnect(sid)
+        return
+    
     
     print("----------CLIENT CONNECTED----------", sid)
     if not auth or not isinstance(auth, dict):
         print(f"Connection refused for {sid}: No authentication provided.")
         raise socketio.exceptions.ConnectionRefusedError("Authentication required")
 
-    token = auth.get("token")
     client_type = auth.get("type")
 
     if client_type == "agent":
@@ -107,6 +121,10 @@ def disconnect(sid):
 def register_agent(sid, data):
     device_id = agent_registry.register(sid, data)
     
+    if not Validator.validate_device_id(device_id):
+        return
+    
+    
     logger.info(f"Agent registered: {device_id} from {sid}")
     
     print("----------AGENT REGISTERED----------", device_id)
@@ -145,6 +163,12 @@ def get_agents(sid):
 def execute_command(sid, data):
     target = data["target"]
     command = data["command"]
+    
+    if not Validator.validate_device_id(target):
+        return
+    
+    if not Validator.validate_command(command):
+        return
 
     if not agent_registry.is_agent_online(target):
         sio.emit(
@@ -193,6 +217,18 @@ def upload_file(sid, data):
    
     target = data["target"]
     
+    if not Validator.validate_device_id(target):
+        return
+    
+    if not Validator.validate_filename(data.get("filename", "")):
+        return
+    
+    if not Validator.validate_filepath(data.get("filepath", "")):
+        return
+    
+    if not Validator.validate_base64_content(data.get("content", "")):
+        return
+    
     if not agent_registry.is_agent_online(target):
         sio.emit(
             "upload_result",
@@ -239,6 +275,16 @@ def download_file(sid, data):
     
     target = data["target"]
     filename = data.get("filename")
+    
+    if not Validator.validate_device_id(target):
+        return
+    
+    if not Validator.validate_filename(filename):
+        return
+    
+    if not Validator.validate_filepath(data.get("filepath", "")):
+        return
+    
     
     if not agent_registry.is_agent_online(target):
         sio.emit(
@@ -289,6 +335,10 @@ def screenshot(sid, data):
     
     target = data["target"]
     
+    if not Validator.validate_device_id(target):
+        return
+
+
     if not agent_registry.is_agent_online(target):
         sio.emit(
             "screenshot_result",
@@ -336,6 +386,10 @@ def get_processes(sid, data):
     # Get Process list
 
     target = data["target"]
+    
+    if not Validator.validate_device_id(target):
+        return
+    
 
     if not agent_registry.is_agent_online(target):
         sio.emit(
@@ -380,6 +434,13 @@ def kill_process(sid, data):
     # Kill process
 
     target = data["target"]
+    
+    if not Validator.validate_device_id(target):
+        return
+    
+    if not Validator.validate_pid(data.get("pid")):
+        return
+    
 
     if not agent_registry.is_agent_online(target):
         sio.emit(
@@ -427,7 +488,13 @@ def start_process(sid, data):
     logger.info(f"Controller {sid} requested to start process '{data['command']}' on agent '{data['target']}'")
     
     target = data["target"]
-
+    
+    if not Validator.validate_device_id(target):
+        return
+    
+    if not Validator.validate_command(data.get("command")):
+        return
+    
     if not agent_registry.is_agent_online(target):
         sio.emit(
             "start_result",
