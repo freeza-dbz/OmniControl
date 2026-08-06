@@ -15,9 +15,6 @@ def register_file_handlers(sio, agent_registry, require_role, agent_service):
         if not Validator.validate_filename(data.get("filename", "")):
             return
         
-        if not Validator.validate_filepath(data.get("filepath", "")):
-            return
-        
         if not Validator.validate_base64_content(data.get("content", "")):
             return
         
@@ -58,15 +55,12 @@ def register_file_handlers(sio, agent_registry, require_role, agent_service):
     @require_role("controller")
     def download_file(sid, data):
         target = data["target"]
-        filename = data.get("filename")
+        filename = data.get("filename") # This is the remote filepath
         
         if not Validator.validate_device_id(target):
             return
         
-        if not Validator.validate_filename(filename):
-            return
-        
-        if not Validator.validate_filepath(data.get("filepath", "")):
+        if not Validator.validate_filepath(filename):
             return
         
         if not agent_registry.is_agent_online(target):

@@ -1,5 +1,13 @@
 import time
 import socketio
+import os
+import sys
+
+# Add project root to sys.path to allow importing 'shared' and 'agent'
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from shared.logger import get_logger
 from agent.handlers.event_handlers import register_event_handlers
 from agent.services.metadata_service import AGENT_TOKEN
